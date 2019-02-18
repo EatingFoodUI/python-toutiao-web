@@ -245,7 +245,7 @@ def GetWeiArList():
     return jsonify({'data': l0})
 
 
-# 删除评论
+# 删除评论 未测试
 @app.route('/deleteComment', methods=['GET', 'POST'])
 @login_required
 def deleteComment():
@@ -270,9 +270,11 @@ def deleteComment():
     comment.article.comment = comment.article.comment-1
     return jsonify({"static": "1"})
 
-    
+
 # 删除发布文章
+
 # 删除头条
+
 # 收藏文章列表
 
 # 搜索文章

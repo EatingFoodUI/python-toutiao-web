@@ -11,7 +11,6 @@ class User(db.Model, UserMixin):
     # __table_args__ = {'extend_existing': True}
     # ### 设置默认pit_uri,attention,fans,motto
     id = db.Column(db.Integer, primary_key=True)
-    uuid = db.Column(db.String(100))
     username = db.Column(db.String(100), unique=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(20))
@@ -68,6 +67,7 @@ class Wei_article(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     id = db.Column(db.Integer, primary_key=True)
+    uuid = db.Column(db.String(100))
     title = db.Column(db.String(100), unique=True, default='no title')
     read_sum = db.Column(db.Integer, default=0)
     comment = db.Column(db.Integer, default=0)
@@ -100,17 +100,16 @@ class Comment(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     id = db.Column(db.Integer, primary_key=True)
-    uuid = db.Column(db.String(100))
+    cid = db.Column(db.String(100))
+    article_uuid = db.Column(db.String(100))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
     comment = db.Column(db.String(500))
-    reply_sum = db.Column(db.Integer, default=0)
-    good_sum = db.Column(db.Integer, default=0)
-    CommentTime = db.Column(db.Date, default=datetime.date.today())
+    reply_sum = db.Column(db.Integer)
+    good_sum = db.Column(db.Integer)
+    CommentTime = db.Column(db.Date)
 
     # 是否是回复别人的评论，是添加回复的评论的id
     is_toPerson = db.Column(db.String(100))
-
-    article_id = db.Column(db.String(100), db.ForeignKey('article.uuid'))
-    user_uuid = db.Column(db.String(100), db.ForeignKey('user.uuid'))
 
     article = db.relationship('Article', backref=db.backref('Comment'))
     user = db.relationship('User', backref=db.backref('Comment'))
@@ -124,12 +123,13 @@ class ColleArticle(db.Model):
     __tablename__ = 'collearticle'
     # __table_args__ = {'extend_existing': True} 
 
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
-    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    article_uuid = db.Column(db.String(100))
     colle_time = db.Column(db.Date, default=datetime.date.today())
     
-    user = db.relationship('User', backref=db.backref('Collearticle'))
-    article = db.relationship('Article', backref=db.backref('Collearticle'))
+    # user = db.relationship('User', backref=db.backref('Collearticle'))
+    # article = db.relationship('Article', backref=db.backref('Collearticle'))
     
     def __repr__(self):
         return '<ColleArticle %r>' % self.user_id
@@ -140,7 +140,7 @@ class Attention(db.Model):
     __tablename__ = 'attention'
     # __table_args__ = {'extend_existing': True} 
 
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'),primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
     attention_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
 
     # user1 = db.relationship('User', back_populates="fans", foreign_keys=user_id)
@@ -156,13 +156,13 @@ class Attention(db.Model):
 # 文章图片
 class Pit(db.Model):
     __tablename__ = 'pit'
-    # __table_args__ = {'extend_existing': True} 
-
+    # __table_args__ = {'extend_existing': True}
+     
     pit_id = db.Column(db.Integer, primary_key=True)
-    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), primary_key=True)
+    article_uuid = db.Column(db.String(100), primary_key=True)
     pit_uri = db.Column(db.String(200))
 
-    article = db.relationship('Article', backref=db.backref('Pit'))
+    # article = db.relationship('Article', backref=db.backref('Pit'))
 
     def __repr__(self):
         return '<Pit %r>' % self.pit_id
@@ -174,10 +174,10 @@ class Wei_pit(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     pit_id = db.Column(db.Integer, primary_key=True)
-    article_id = db.Column(db.Integer, db.ForeignKey('wei_article.id'), primary_key=True)
+    article_uuid = db.Column(db.String(100), primary_key=True)
     pit_uri = db.Column(db.String(200))
 
-    wei_article = db.relationship('Wei_article', backref=db.backref('Wei_pit'))
+    # wei_article = db.relationship('Wei_article', backref=db.backref('Wei_pit'))
     
     def __repr__(self):
         return '<Wei_pit %r>' % self.pit_id
