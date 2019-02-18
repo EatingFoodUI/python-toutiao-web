@@ -6,6 +6,7 @@ import pdb
 from show_weather import get_weather, get_weather_page
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import and_
+import shortuuid
 # import json
 
 
@@ -153,7 +154,7 @@ def getAttentions():
     pdb.set_trace()
     the_id = request.json['id']
     page = request.json['page']
-    if page is None:
+    if page == "":
         page = 1
     if the_id is None:
         the_id = current_user.id
@@ -196,14 +197,82 @@ def getFans():
     return jsonify({'data': l0})
 
 
-# 发表文章
+# 发表/修改文章
+@app.route('/PublishArticle', methods=['GET', 'POST'])
+@login_required
+def PublishArticle():
+    # pdb.set_trace()
+    uuid = request.json['uuid']
+    content = request.json['content']
+    user_id = request.json['id']
+    title = request.json['title']
+    article_id = shortuuid.uuid(pad_length=20)
+    the_user = User.query.filter(User.id == user_id).first()
+    if the_user is None or content == "":
+        return jsonify({"static": "0"})
+    if uuid is None:
+        new_article = Article(uuid=article_id, title=title, content=content, author_id=user_id)
+        db.session.add(new_article)
+        db.session.commit()
+        return jsonify({"static": "1"})
+    else:
+        the_article = Article.query.filter(Article.uuid == uuid).first()
+        the_article.title = title
+        the_article.content = content
+        db.session.commit()
+        return jsonify({"static": "2"})
+
 
 # 获取微头条列表
+@app.route('/GetWeiArList', methods=['GET', 'POST'])
+def GetWeiArList():
+    the_id = request.json['id']
+    page = request.json['page']
+    if page == "":
+        page = 1
+    if the_id is None:
+        the_id = current_user.id
+    weiArList = Wei_article.query.filter(Wei_article.author_id == the_id).all()
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            weiAr = weiArList[(int(page)-1)*20 + i]
+            the_json = weiAr.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
 
-# 获取评论列表
 
 # 删除评论
+@app.route('/deleteComment', methods=['GET', 'POST'])
+@login_required
+def deleteComment():
+    # user_id = request.json['user_id']
+    cid = request.json['cid']
+    # article_id = request.json['article_id']
+    comment = Comment.query.filter(Comment.cid == cid).first()
+    if comment is None:
+        return jsonify({"static": "0"})
+    db.session.delete(comment)
+    db.session.commit()
+    # 它评论其他评论
+    if comment.is_toPerson is not None:
+        one_comment = Comment.query.filter(Comment.uuid == comment.is_toPerson).first()
+        one_comment.reply_sum = one_comment.reply_sum-1
+    # 评论它的评论
+    comments = Comment.query.filter(Comment.is_toPerson == cid).all()
+    if comments is not None:
+        for i in range(0, len(comments)):
+            comments[i].is_toPerson = ""
+        db.session.commit()
+    comment.article.comment = comment.article.comment-1
+    return jsonify({"static": "1"})
 
+    
+# 删除发布文章
+# 删除头条
 # 收藏文章列表
 
 # 搜索文章
@@ -237,6 +306,8 @@ def getFans():
 # 查看回复
 
 # 点赞
+
+# --------------------------------------------------------
 
 # 取消点赞
 

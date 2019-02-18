@@ -2,6 +2,7 @@
 
 from . import db
 from flask_login import UserMixin
+import datetime
 
 
 # 用户
@@ -10,14 +11,15 @@ class User(db.Model, UserMixin):
     # __table_args__ = {'extend_existing': True}
     # ### 设置默认pit_uri,attention,fans,motto
     id = db.Column(db.Integer, primary_key=True)
+    uuid = db.Column(db.String(100))
     username = db.Column(db.String(100), unique=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(20))
     pit_uri = db.Column(db.String(200))
-    attention = db.Column(db.Integer)
-    fans = db.Column(db.Integer)
+    attention = db.Column(db.Integer, default=0)
+    fans = db.Column(db.Integer, default=0)
     # 格言
-    motto = db.Column(db.String(100))
+    motto = db.Column(db.String(100), default="no motto")
 
     # fans = db.relationship('Attention', back_populates="user1")
     # attentions = db.relationship('Attention', back_populates="user2")
@@ -45,11 +47,13 @@ class Article(db.Model):
     # __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), unique=True)
-    types = db.Column(db.String(20))
-    read_sum = db.Column(db.Integer)
-    comment = db.Column(db.Integer)
-    updateTime = db.Column(db.Date)
+    uuid = db.Column(db.String(100))
+    title = db.Column(db.String(100), unique=True, default='no title')
+    content = db.Column(db.Text)
+    types = db.Column(db.String(20), default='其他')
+    read_sum = db.Column(db.Integer, default=0)
+    comment = db.Column(db.Integer, default=0)
+    updateTime = db.Column(db.Date, default=datetime.date.today())
 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     User = db.relationship('User', backref=db.backref('Article'))
@@ -64,14 +68,27 @@ class Wei_article(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), unique=True)
-    read_sum = db.Column(db.Integer)
-    comment = db.Column(db.Integer)
-    good_sum = db.Column(db.Integer)
-    updateTime = db.Column(db.Date)
+    title = db.Column(db.String(100), unique=True, default='no title')
+    read_sum = db.Column(db.Integer, default=0)
+    comment = db.Column(db.Integer, default=0)
+    good_sum = db.Column(db.Integer, default=0)
+    updateTime = db.Column(db.Date, default=datetime.date.today())
 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user = db.relationship('User', backref=db.backref('Wei_article'))
+
+    def Info(self):
+        info = {
+            'static': 1,
+            'id': self.id,
+            'title': self.title,
+            'read_sum': self.read_sum,
+            'good_sum': self.good_sum,
+            'updateTime': self.updateTime,
+            'author_id': self.author_id
+        }
+        return info
+
 
     def __repr__(self):
         return '<Wei_article %r>' % self.title
@@ -83,15 +100,17 @@ class Comment(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     id = db.Column(db.Integer, primary_key=True)
-    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), unique=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    uuid = db.Column(db.String(100))
     comment = db.Column(db.String(500))
-    reply_sum = db.Column(db.Integer)
-    good_sum = db.Column(db.Integer)
-    CommentTime = db.Column(db.Date)
+    reply_sum = db.Column(db.Integer, default=0)
+    good_sum = db.Column(db.Integer, default=0)
+    CommentTime = db.Column(db.Date, default=datetime.date.today())
 
     # 是否是回复别人的评论，是添加回复的评论的id
-    by_comment = db.Column(db.Integer)
+    is_toPerson = db.Column(db.String(100))
+
+    article_id = db.Column(db.String(100), db.ForeignKey('article.uuid'))
+    user_uuid = db.Column(db.String(100), db.ForeignKey('user.uuid'))
 
     article = db.relationship('Article', backref=db.backref('Comment'))
     user = db.relationship('User', backref=db.backref('Comment'))
@@ -107,8 +126,8 @@ class ColleArticle(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'), primary_key=True)
-    colle_time = db.Column(db.Date)
-
+    colle_time = db.Column(db.Date, default=datetime.date.today())
+    
     user = db.relationship('User', backref=db.backref('Collearticle'))
     article = db.relationship('Article', backref=db.backref('Collearticle'))
     
@@ -141,6 +160,7 @@ class Pit(db.Model):
 
     pit_id = db.Column(db.Integer, primary_key=True)
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'), primary_key=True)
+    pit_uri = db.Column(db.String(200))
 
     article = db.relationship('Article', backref=db.backref('Pit'))
 
@@ -155,6 +175,7 @@ class Wei_pit(db.Model):
 
     pit_id = db.Column(db.Integer, primary_key=True)
     article_id = db.Column(db.Integer, db.ForeignKey('wei_article.id'), primary_key=True)
+    pit_uri = db.Column(db.String(200))
 
     wei_article = db.relationship('Wei_article', backref=db.backref('Wei_pit'))
     
