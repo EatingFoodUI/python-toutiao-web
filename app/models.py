@@ -57,6 +57,20 @@ class Article(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     User = db.relationship('User', backref=db.backref('Article'))
 
+    def Info(self):
+        info = {
+            'static': 1,
+            'uuid': self.uuid,
+            'title': self.title,
+            'content': self.content,
+            'types': self.types,
+            'read_sum': self.read_sum,
+            'comment': self.comment,
+            'updateTime': self.updateTime,
+            'author_id': self.author_id
+        }
+        return info
+
     def __repr__(self):
         return '<Article %r>' % self.title
 
@@ -69,6 +83,7 @@ class Wei_article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     uuid = db.Column(db.String(100))
     title = db.Column(db.String(100), unique=True, default='no title')
+    content = db.Column(db.Text)
     read_sum = db.Column(db.Integer, default=0)
     comment = db.Column(db.Integer, default=0)
     good_sum = db.Column(db.Integer, default=0)
@@ -111,7 +126,7 @@ class Comment(db.Model):
     # 是否是回复别人的评论，是添加回复的评论的id
     is_toPerson = db.Column(db.String(100))
 
-    article = db.relationship('Article', backref=db.backref('Comment'))
+    # article = db.relationship('Article', backref=db.backref('Comment'))
     user = db.relationship('User', backref=db.backref('Comment'))
     
     def __repr__(self):

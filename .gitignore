@@ -121,3 +121,4 @@ get_weather_id.py
 show_weather.py
 /migrations/
 /app/config.py
+api.md

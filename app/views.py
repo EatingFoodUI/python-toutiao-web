@@ -1,13 +1,22 @@
 from app import app, login_manager, db
 from .models import Wei_pit, Pit, Attention, ColleArticle
 from .models import Comment, Wei_article, Article, User
-from flask import jsonify, request
+from flask import jsonify, request, current_app
 import pdb
 from show_weather import get_weather, get_weather_page
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import and_
 import shortuuid
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 # import json
+
+
+# 生成令牌函数(未写)
+def generate_token(user, opration, expire_in=None, **kwargs):
+    s = Serializer(current_app.config['SECRET_KEY'], expire_in)
+    data = {'id': user.id, 'operation': opration}
+    data.update(**kwargs)
+    return s.dumps(data)
 
 
 # 用户加载函数
@@ -47,9 +56,9 @@ def SignIn():
     # pdb.set_trace()
     the_user = User.query.filter(User.email == email).first()
     if the_user is None:
-        return jsonify({'static': '-1'})
-    if passwd != the_user.password:
         return jsonify({'static': '0'})
+    if passwd != the_user.password:
+        return jsonify({'static': '2'})
     if passwd == the_user.password:
         login_user(the_user, remember=True)
         return jsonify(the_user.UserInfo())
@@ -67,6 +76,29 @@ def LoginOut():
         return jsonify({'static': '0'})
     logout_user()
     return jsonify({'static': '1'})
+
+
+# 注册用户
+@app.route('/registered', methods=['GET', 'POST'])
+def registered():
+    username = request.json['username']
+    email = request.json['email']
+    passwd = request.json['passwd']
+    repasswd = request.json['']
+    if User.query.filter(User.username == username).first() is not None:
+        return jsonify({"static": "0"})
+    if User.query.filter(User.email == email).first() is not None:
+        return jsonify({"static": "1"})
+    if passwd != repasswd:
+        return jsonify({"static": "2"})
+    new_user = User(username=username, password=passwd, email=email)  
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"static": "3"})
+
+
+# 验证邮箱(未写)
+@app.route('/ensureEmail', methods=['GET', 'POST'])
 
 
 # 更改用户名
@@ -120,7 +152,7 @@ def userAttention():
         db.session.commit()
         return jsonify({"static": "1"})
     else:
-        return jsonify({"static": "0"})
+        return jsonify({"static": "2"})
 
 
 # 取消关注
@@ -145,10 +177,10 @@ def notAttention():
         db.session.commit()
         return jsonify({"static": "1"})
     else:
-        return jsonify({"static": "0"})
+        return jsonify({"static": "2"})
 
 
-# 关注用户列表
+# 关注的用户列表
 @app.route('/getAttentions', methods=['GET', 'POST'])
 def getAttentions():
     pdb.set_trace()
@@ -156,8 +188,10 @@ def getAttentions():
     page = request.json['page']
     if page == "":
         page = 1
-    if the_id is None:
+    if the_id == "":
         the_id = current_user.id
+        if the_id is None:
+            return jsonify({"static":"0"})
     attention_list = Attention.query.filter(
         and_(Attention.user_id == the_id)).all()
     l0 = list()
@@ -210,17 +244,19 @@ def PublishArticle():
     the_user = User.query.filter(User.id == user_id).first()
     if the_user is None or content == "":
         return jsonify({"static": "0"})
-    if uuid is None:
+    if uuid == "":
         new_article = Article(uuid=article_id, title=title, content=content, author_id=user_id)
         db.session.add(new_article)
         db.session.commit()
         return jsonify({"static": "1"})
     else:
         the_article = Article.query.filter(Article.uuid == uuid).first()
-        the_article.title = title
-        the_article.content = content
-        db.session.commit()
-        return jsonify({"static": "2"})
+        if the_article is not None:
+            the_article.title = title
+            the_article.content = content
+            db.session.commit()
+            return jsonify({"static": "2"})
+        return jsonify({"static": "3"})
 
 
 # 获取微头条列表
@@ -271,21 +307,134 @@ def deleteComment():
     return jsonify({"static": "1"})
 
 
-# 删除发布文章
+# 发布/修改微头条
+@app.route('/PublicWei', methods=['GET', 'POST'])
+@login_required
+def PublicWei():
+    # pdb.set_trace()
+    uuid = request.json['uuid']
+    content = request.json['content']
+    user_id = request.json['id']
+    # 图片处理商议
+    article_id = shortuuid.uuid(pad_length=20)
+    the_user = User.query.filter(User.id == user_id).first()
+    if the_user is None or content == "":
+        return jsonify({"static": "0"})
+    if uuid == "":
+        new_article = Wei_article(uuid=article_id, content=content, author_id=user_id)
+        db.session.add(new_article)
+        db.session.commit()
+        return jsonify({"static": "1"})
+    else:
+        the_article = Wei_article.query.filter(Wei_article.uuid == uuid).first()
+        the_article.content = content
+        db.session.commit()
+        return jsonify({"static": "2"})
 
-# 删除头条
 
-# 收藏文章列表
+# 删除微头条
+@app.route('/deleteWei', methods=['GET', 'POST'])
+@login_required
+def deleteWei():
+    # pdb.set_trace()
+    id = request.json['id']
+    uuid = request.json['uuid']
+    if id != str(current_user.id):
+        return jsonify({"static": "0"})
+    if uuid == "":
+        return jsonify({"static": "1"})
+    the_wei = Wei_article.query.filter(Wei_article.uuid == uuid).first()
+    if the_wei is None:
+        return jsonify({"static": "2"})
+    comments = Comment.query.filter(Comment.article_uuid == uuid).all()
+    if comments is not None:
+        for i in range(0, len(comments)):
+            db.session.delete(comments[i])
+        db.session.commit()
+    db.session.delete(the_wei)
+    db.session.commit()
+    return jsonify({"static": "3"})
+    
+
+# 收藏文章列表(未测试)
+@app.route('/likeAr_list', methods=['GET', 'POST'])
+@login_required
+def likeAr_list():
+    id = request.json['id']
+    page = request.json['page']
+    if id != str(current_user.id):
+        return jsonify({"static": "0"})
+    Ar_list = ColleArticle.query.filter(
+        and_(ColleArticle.user_id == id)).all()
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            Ar = Ar_list[(int(page)-1)*20 + i]
+            the_colle_time = Ar.colle_time
+            ar_uuid = Ar.article_uuid
+            the_article = Article.query.filter(Article.uuid == ar_uuid).first()
+            the_json = the_article.Info()
+            the_json["colle_time"] = the_colle_time
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
 
 # 搜索文章
+@app.route('/relateAr', methods=['GET', 'POST'])
+def relateAr():
+    content = request.json['content']
+    page = request.json['page']
+    if page == "":
+        page = "1"
+    if content == "":
+        return jsonify({"static": "0"})
+    the_article = Article.query.filter(Article.title.like('%'+content+'%')).all()
+    if the_article is None:
+        return jsonify({"static": "1"})
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            article = the_article[(int(page)-1)*20 + i]
+            the_json = article.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
 
 # 搜索用户
+@app.route('/relateUser', methods=['GET', 'POST'])
+def relateUser():
+    content = request.json['content']
+    page = request.json['page']
+    if page == "":
+        page = "1"
+    if content == "":
+        return jsonify({"static": "0"})
+    the_user = User.query.filter(User.username.like('%'+content+'%')).all()
+    if the_user is None:
+        return jsonify({"static": "1"})
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            user = the_user[(int(page)-1)*20 + i]
+            the_json = user.UserInfo()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
 
-# 首页文章
 
-# 热闻
+# 首页文章(机器学习)
 
-# 推荐文章
+# 热闻(机器学习)
+
+# 推荐文章(机器学习)
 
 # ----------------------------------------------------------
 
@@ -315,7 +464,4 @@ def deleteComment():
 
 # 举报用户
 
-# 注册
-
-# 验证
 
