@@ -8,7 +8,9 @@ from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import and_
 import shortuuid
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+import datetime
 # import json
+
 
 
 # 生成令牌函数(未写)
@@ -436,31 +438,159 @@ def relateUser():
 
 # 推荐文章(机器学习)
 
-# ----------------------------------------------------------
-
 # 其他文章
+@app.route('/OtherArticle', methods=['GET', 'POST'])
+def OtherArticle():
+    page = request.json['page']
+    if page == "":
+        page = 1
+    otherArticles = Article.query.order_by(Article.updateTime.desc()).paginate(page=int(page), per_page=20, error_out=False)
+    # pdb.set_trace()
+    if otherArticles is None:
+        return jsonify({"static": "0"})
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            article = otherArticles.items[i]
+            the_json = article.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
 
 # 收藏文章
+@app.route('/CollectArticles', methods=['GET', 'POST'])
+@login_required
+def ColleArticles():
+    uuid = request.json['uuid']
+    id = request.json['id']
+    if uuid == "":
+        return jsonify({"static": "0"})
+    if id != str(current_user.id):
+        return jsonify({"static": "1"})
+    if Article.query.filter(Article.uuid == uuid).first() is None:
+        return jsonify({"static": "2"})
+    to_collect = ColleArticle(user_id=id, article_uuid=uuid)
+    db.session.add(to_collect)
+    db.session.commit()
+    return jsonify({"static": "3"})
+
 
 # 取消收藏
+@app.route('/DeleteCollectArticles', methods=['GET', 'POST'])
+@login_required
+def DeleteCollectArticles():
+    uuid = request.json['uuid']
+    id = request.json['id']
+    if uuid == "":
+        return jsonify({"static": "0"})
+    if id != str(current_user.id):
+        return jsonify({"static": "1"})
+    the_collect = ColleArticle.query.filter(and_(ColleArticle.article_uuid == uuid, ColleArticle.user_id == id)).first()
+    if the_collect is None:        
+        return jsonify({"static": "2"})
+    db.session.delete(the_collect)
+    db.session.commit()
+    return jsonify({"static": "3"})
 
-# 举报文章
 
 # 文章详情
+@app.route('/show_article', methods=['GET', 'POST'])
+def show_article():
+    uuid = request.json['uuid']
+    if uuid == "":
+        return jsonify({"static": "0"})
+    article = Article.query.filter(Article.uuid == uuid).first()
+    if article is None:
+        return jsonify({"static": "1"})
+    return jsonify(article.Info())
+
 
 # 获取评论
+@app.route('/get_comment', methods=['GET', 'POST'])
+def get_comment():
+    uuid = request.json['uuid']
+    page = request.json['page']
+    if page == "":
+        page = 1
+    if uuid == "":
+        return jsonify({"static": "0"})
+    if Article.query.filter(Article.uuid == uuid).first() is None:
+        return jsonify({"static": "1"})
+    comment_list = Comment.query.filter(and_(Comment.article_uuid == uuid, Comment.is_toPerson == "")).order_by(Comment.CommentTime.desc()).paginate(page=int(page), per_page=20, error_out=False).items    
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            comment = comment_list[i]
+            the_json = comment.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
 
-# 发表评论
 
-# 发表回复
+# 发表评论/回复
+@app.route('/public_comment', methods=['GET', 'POST'])
+@login_required
+def public_comment():
+    user_id = request.json['id']
+    uuid = request.json['uuid']
+    content = request.json['content']
+    is_toPerson = request.json['is_toPerson']
+    if user_id == "" or int(user_id) != current_user.id:
+        return jsonify({"static": "0"})
+    if uuid == "":
+        return jsonify({"static": "1"})
+    if Article.query.filter(Article.uuid == uuid).first() is None:
+        return jsonify({"static": "2"})
+    if is_toPerson != "" and Comment.query.filter(Comment.cid == is_toPerson).first() is None:
+        return jsonify({"static": "3"})
+    if content == "":
+        return jsonify({"static": "4"})
+    cid = shortuuid.uuid(pad_length=20)
+    comment = Comment(cid=cid, article_uuid=uuid, user_id=current_user.id, comment=content, is_toPerson=is_toPerson, CommentTime=datetime.date.today())
+    db.session.add(comment)
+    db.session.commit()
+    if is_toPerson != "":
+        the_comment = Comment.query.filter(Comment.cid == is_toPerson).first()
+        the_comment.reply_sum = the_comment.reply_sum + 1
+        db.session.commit()
+    return jsonify({"static": "5"})
+
 
 # 查看回复
+@app.route('/show_reply', methods=['GET', 'POST'])
+def show_reply():
+    # pdb.set_trace()
+    article_id = request.json['article_id']
+    cid = request.json['cid']
+    if article_id == "" or cid == "":
+        return jsonify({"static": "0"})
+    if Comment.query.filter(and_(Comment.cid == cid, Comment.article_uuid == article_id)).first() is None:
+        return jsonify({"static": "1"})
+    # 回复排序
+    the_comment_list = Comment.query.filter(Comment.is_toPerson == cid).order_by(Comment.CommentTime.desc()).all()
+    l0 = list()
+    # 每页返回20
+    for i in range(0, len(the_comment_list)):
+        try:
+            comment = the_comment_list[i]
+            the_json = comment.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
+# ---------------------------------------
 
 # 点赞
 
-# --------------------------------------------------------
-
 # 取消点赞
+# =========================
+# 举报文章
 
 # 举报用户
 

@@ -117,10 +117,10 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cid = db.Column(db.String(100))
     article_uuid = db.Column(db.String(100))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     comment = db.Column(db.String(500))
-    reply_sum = db.Column(db.Integer)
-    good_sum = db.Column(db.Integer)
+    reply_sum = db.Column(db.Integer, default=0)
+    good_sum = db.Column(db.Integer, default=0)
     CommentTime = db.Column(db.Date)
 
     # 是否是回复别人的评论，是添加回复的评论的id
@@ -129,6 +129,18 @@ class Comment(db.Model):
     # article = db.relationship('Article', backref=db.backref('Comment'))
     user = db.relationship('User', backref=db.backref('Comment'))
     
+    def Info(self):
+        info = {
+            'static': 1,
+            'cid': self.cid,
+            'article_uuid': self.article_uuid,
+            'comment': self.comment,
+            'reply_sum': self.reply_sum,
+            'good_sum': self.good_sum,
+            'CommentTime': self.CommentTime
+        }
+        return info
+
     def __repr__(self):
         return '<Comment %r>' % self.id
 
