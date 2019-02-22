@@ -220,3 +220,24 @@ class Weather(db.Model):
 
     def __repr__(self):
         return '<Weather %r>' % self.id
+
+
+# 点赞记录
+class Good(db.Model):
+    __tablename__ = 'good'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    comment_cid = db.Column(db.String(100))
+    article_uuid = db.Column(db.String(100))
+
+    def Info(self):
+        info = {
+            'user_id': self.user_id,
+            'comment_cid': self.comment_cid,
+            'article_uuid': self.article_uuid
+        }
+        return info
+
+    def __repr__(self):
+        return '<Good %r>' % self.id

@@ -1,6 +1,6 @@
 from app import app, login_manager, db
 from .models import Wei_pit, Pit, Attention, ColleArticle
-from .models import Comment, Wei_article, Article, User
+from .models import Comment, Wei_article, Article, User, Good
 from flask import jsonify, request, current_app
 import pdb
 from show_weather import get_weather, get_weather_page
@@ -584,13 +584,75 @@ def show_reply():
             print('')
     return jsonify({'data': l0})
 
-# ---------------------------------------
+# ----------------------------------
+
 
 # 点赞
+@app.route('/give_good', methods=['GET', 'POST'])
+@login_required
+def give_good():
+    user_id = request.json['user_id']
+    comment_id = request.json['cid']
+    article_uuid = request.json['article_uuid']
+    if int(user_id) != current_user.id:
+        return jsonify({"static": "0"})
+    if Comment.query.filter(Comment.cid == comment_id).first() is None or Good.query.filter(and_(Good.user_id == int(user_id), Good.comment_cid == comment_id)).first() is not None:
+        return jsonify({"static": "1"})
+    the_good = Good(user_id=user_id, comment_cid=comment_id, article_uuid=article_uuid)
+    db.session.add(the_good)
+    the_comment = Comment.query.filter(Comment.cid == comment_id).first()
+    the_comment.good_sum = the_comment.good_sum + 1
+    db.session.commit()
+    return jsonify({"static": "2"})
+
 
 # 取消点赞
-# =========================
+@app.route('/delete_good', methods=['GET', 'POST'])
+@login_required
+def delete_good():
+    user_id = request.json['user_id']
+    comment_id = request.json['cid']
+    if int(user_id) != current_user.id:
+        return jsonify({"static": "0"})
+    if Comment.query.filter(Comment.cid == comment_id).first() is None or Good.query.filter(and_(Good.user_id == int(user_id), Good.comment_cid == comment_id)).first() is None:
+        return jsonify({"static": "1"})
+    the_good = Good.query.filter(and_(Good.user_id == user_id, Good.comment_cid == comment_id)).first()
+    db.session.delete(the_good)
+    db.session.commit()
+    the_comment = Comment.query.filter(Comment.cid == comment_id).first()
+    the_comment.good_sum = the_comment.good_sum - 1
+    db.session.commit()
+    return jsonify({"static": "2"})
+
+
+# 查看点赞状态
+@app.route('/is_alreadyGood', methods=['GET', 'POST'])
+@login_required
+def is_alreadyGood():
+    user_id = int(request.json['user_id'])
+    article_uuid = request.json['article_uuid']
+    if user_id != current_user.id:
+        return jsonify({"static": "0"})
+    if Article.query.filter(Article.uuid == article_uuid).first() is None:
+        return jsonify({"static": "1"})
+    where_good = Good.query.filter(and_(Good.article_uuid == article_uuid, Good.user_id == user_id)).all()
+    # pdb.set_trace()
+    if where_good is None:
+        return jsonify({"static": "2"})
+    l0 = list()
+    for i in range(0, len(where_good)):
+        try:
+            good = where_good[i]
+            the_json = good.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
+
+# -------------------------------------
 # 举报文章
+
 
 # 举报用户
 
