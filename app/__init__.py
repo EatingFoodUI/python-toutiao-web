@@ -8,6 +8,8 @@ from flask_script import Manager
 from flask_migrate import Migrate
 # 管理用户登录
 from flask_login import LoginManager
+# 发送邮件
+from flask_mail import Mail
 
 app = Flask(__name__)
 app.secret_key = "jinritoutiao"
@@ -29,5 +31,7 @@ login_manager = LoginManager(app)
 
 manager = Manager(app)
 
+# 邮件实例
+mail = Mail(app)
 
 from . import views

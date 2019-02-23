@@ -1,7 +1,7 @@
-from app import app, login_manager, db
+from app import app, login_manager, db, mail
 from .models import Wei_pit, Pit, Attention, ColleArticle
 from .models import Comment, Wei_article, Article, User, Good
-from flask import jsonify, request, current_app
+from flask import jsonify, request, current_app, session
 import pdb
 from show_weather import get_weather, get_weather_page
 from flask_login import login_user, logout_user, login_required, current_user
@@ -9,6 +9,7 @@ from sqlalchemy import and_
 import shortuuid
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 import datetime
+from flask_mail import Message
 # import json
 
 
@@ -19,6 +20,15 @@ def generate_token(user, opration, expire_in=None, **kwargs):
     data = {'id': user.id, 'operation': opration}
     data.update(**kwargs)
     return s.dumps(data)
+
+
+# 发送邮件
+def send_email(email):
+    msg = Message('欢迎注册', recipients=[email])
+    verification = shortuuid.uuid(pad_length=5)
+    msg.body = '密码是' + str(verification)
+    mail.send(msg)
+    return verification
 
 
 # 用户加载函数
@@ -86,21 +96,34 @@ def registered():
     username = request.json['username']
     email = request.json['email']
     passwd = request.json['passwd']
-    repasswd = request.json['']
-    if User.query.filter(User.username == username).first() is not None:
+    repasswd = request.json['repasswd']
+    verification = request.json['ver']
+    if verification != session['verdifacation']:
         return jsonify({"static": "0"})
-    if User.query.filter(User.email == email).first() is not None:
+    if User.query.filter(User.username == username).first() is not None or username == "":
         return jsonify({"static": "1"})
-    if passwd != repasswd:
+    if User.query.filter(User.email == email).first() is not None or email == "" or email != session['email']:
         return jsonify({"static": "2"})
+    if passwd != repasswd or passwd == "" or repasswd == "":
+        return jsonify({"static": "3"})
     new_user = User(username=username, password=passwd, email=email)  
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"static": "3"})
+    session.pop('email', None)
+    session.pop('verdifacation', None)
+    return jsonify({"static": "4"})
 
 
-# 验证邮箱(未写)
+# 向邮箱发送验证码
 @app.route('/ensureEmail', methods=['GET', 'POST'])
+def ensureEmail():    
+    email = request.json['email']
+    if User.query.filter(User.email == email).first() is not None or email == "":
+        return jsonify({"static": "0"})
+    verdifacation = send_email(email)
+    session['email'] = email
+    session['verdifacation'] = verdifacation
+    return jsonify({"ver": verdifacation, "email": email})
 
 
 # 更改用户名
@@ -583,8 +606,6 @@ def show_reply():
         except IndexError:
             print('')
     return jsonify({'data': l0})
-
-# ----------------------------------
 
 
 # 点赞
