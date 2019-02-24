@@ -1,7 +1,7 @@
 from app import app, login_manager, db, mail
 from .models import Wei_pit, Pit, Attention, ColleArticle
-from .models import Comment, Wei_article, Article, User, Good
-from flask import jsonify, request, current_app, session
+from .models import Comment, Wei_article, Article, User, Good, User_pit
+from flask import jsonify, request, current_app, session, make_response
 import pdb
 from show_weather import get_weather, get_weather_page
 from flask_login import login_user, logout_user, login_required, current_user
@@ -10,8 +10,30 @@ import shortuuid
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 import datetime
 from flask_mail import Message
+import os
 # import json
 
+
+# 图片配置
+ARTICLE_PIT_PATH = '/home/liyongli/下载/今日头条/app/templates/article_pit/'
+USER_PIT_PATH = '/home/liyongli/下载/今日头条/app/templates/user_pit/'
+COMMENT_PIT_PATH = '/home/liyongli/下载/今日头条/app/templates/comment_pit/'
+WEIARTICLE_PIT_PATH = '/home/liyongli/下载/今日头条/app/templates/weiarticle_pit/'
+
+
+# 跨域请求
+@app.after_request
+def af_request(resp):
+    """
+    # 请求钩子，在所有的请求发生后执行，加入headers。
+    :param resp:
+    :return:
+    """
+    resp = make_response(resp)
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET,POST'
+    resp.headers['Access-Control-Allow-Headers'] = 'x-requested-with,content-type'
+    return resp
 
 
 # 生成令牌函数(未写)
@@ -461,6 +483,7 @@ def relateUser():
 
 # 推荐文章(机器学习)
 
+
 # 其他文章
 @app.route('/OtherArticle', methods=['GET', 'POST'])
 def OtherArticle():
@@ -671,7 +694,78 @@ def is_alreadyGood():
     return jsonify({'data': l0})
 
 
-# -------------------------------------
+# 上传图片(统一)
+@app.route('/Photo/<string:pitFrom>', methods=['POST'])
+def essayPhoto(pitFrom):
+    # pdb.set_trace()
+    img = request.files.get('img')    # 获取上传的文件
+    uuid = request.form['uuid']
+
+    if img is None:
+        return jsonify({"static": "0"})
+
+    if pitFrom == "":
+        return jsonify({"static": "1"})
+    pitName = img.filename
+    if pitName == "":
+        return jsonify({"static": "2"})
+    if uuid == "":
+        return jsonify({"static": "3"})
+    filename = str(shortuuid.uuid(pad_length=20)) + pitName
+    
+    UPLOAD_FOLDER = os.path.join('/home/liyongli/下载/今日头条/app/templates/', '%s/%s' % (pitFrom, pitName))
+    file_path = UPLOAD_FOLDER+filename
+
+    try:
+        img.save(file_path)
+    except FileNotFoundError:
+        print("没有此路径")
+        return jsonify({"static": "4"})
+
+    if pitFrom == "article_pit":
+        the_pit = Pit(pit_name=filename, article_uuid=uuid, pit_uri=file_path)
+    if pitFrom == "user_pit":
+        the_pit = User_pit(pit_name=filename, user_id=uuid, pit_uri=file_path)
+    if pitFrom == "weiarticle_pit":
+        the_pit = Wei_pit(pit_name=filename, article_uuid=uuid, pit_uri=file_path)
+    db.session.add(the_pit)
+    db.session.commit()
+       
+    return jsonify({'static': "5", 'src': file_path, 'filename': filename})
+
+
+# 获取图片
+@app.route('/Photo', methods=['GET', 'POST'])
+def Photo():
+    pitFrom = request.json['pitFrom']
+    uuid = request.json['uuid']
+    the_list = list()
+
+    if pitFrom == "" or uuid == "":
+        return jsonify({"static": "0"})
+    if pitFrom == "article_pit":
+        if Article.query.filter(Article.uuid == uuid).first() is None:
+            return jsonify({"static": "1"})
+        the_list = Pit.query.filter(Pit.article_uuid == uuid).all()
+    if pitFrom == "user_pit":
+        if User.query.filter(User.id == uuid).first() is None:
+            return jsonify({"static": "2"})
+        the_list = User_pit.query.filter(User_pit.user_id == uuid).all()
+    if pitFrom == "weiarticle_pit":
+        if Wei_article.query.filter(Wei_article.uuid == uuid).first() is None:
+            return jsonify({"static": "3"})
+        the_list = Wei_pit.query.filter(Wei_pit.article_uuid == uuid).all()
+    l0 = list()
+    for i in range(0, len(the_list)):
+        try:
+            pit = the_list[i]
+            the_json = pit.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})  
+
+
 # 举报文章
 
 

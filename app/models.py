@@ -186,10 +186,20 @@ class Pit(db.Model):
     # __table_args__ = {'extend_existing': True}
      
     pit_id = db.Column(db.Integer, primary_key=True)
-    article_uuid = db.Column(db.String(100), primary_key=True)
+    pit_name = db.Column(db.String(100))
+    article_uuid = db.Column(db.String(100))
     pit_uri = db.Column(db.String(200))
 
     # article = db.relationship('Article', backref=db.backref('Pit'))
+
+    def Info(self):
+        info = {
+            'pit_name': self.pit_name,
+            'article_uuid': self.article_uuid,
+            'pit_uri': self.pit_uri
+        }
+        return info
+
 
     def __repr__(self):
         return '<Pit %r>' % self.pit_id
@@ -201,13 +211,43 @@ class Wei_pit(db.Model):
     # __table_args__ = {'extend_existing': True} 
 
     pit_id = db.Column(db.Integer, primary_key=True)
-    article_uuid = db.Column(db.String(100), primary_key=True)
+    pit_name = db.Column(db.String(200))
+    article_uuid = db.Column(db.String(100))
     pit_uri = db.Column(db.String(200))
 
     # wei_article = db.relationship('Wei_article', backref=db.backref('Wei_pit'))
     
+    def Info(self):
+        info = {
+            'pit_name': self.pit_name,
+            'article_uuid': self.article_uuid,
+            'pit_uri': self.pit_uri
+        }
+        return info
+
     def __repr__(self):
         return '<Wei_pit %r>' % self.pit_id
+
+
+# 用户图片
+class User_pit(db.Model):
+    __tablename__ = 'user_pit'
+
+    pit_id = db.Column(db.Integer, primary_key=True)
+    pit_name = db.Column(db.String(100))
+    user_id = db.Column(db.Integer)
+    pit_uri = db.Column(db.String(200))
+
+    def Info(self):
+        info = {
+            'pit_name': self.pit_name,
+            'user_id': self.user_id,
+            'pit_uri': self.pit_uri
+        }
+        return info
+
+    def __repr__(self):
+        return '<User_pit %r>' % self.pit_id
 
 
 # 天气
