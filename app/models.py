@@ -281,3 +281,45 @@ class Good(db.Model):
 
     def __repr__(self):
         return '<Good %r>' % self.id
+
+
+# 文章举报记录
+class Report_AR(db.Model):
+    __tablename__ = 'Report_AR'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    article_uuid = db.Column(db.String(100))
+    reason_id = db.Column(db.String)
+
+    def Info(self):
+        info = {
+            'user_id': self.user_id,
+            'reason_id': self.reason_id,
+            'article_uuid': self.article_uuid
+        }
+        return info
+
+    def __repr__(self):
+        return '<Good %r>' % self.id
+
+
+# 用户举报记录
+class Report_USER(db.Model):
+    __tablename__ = 'Report_USER'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    report_id = db.Column(db.String(100))
+    reason_id = db.Column(db.String)
+
+    def Info(self):
+        info = {
+            'user_id': self.user_id,
+            'reason_id': self.reason_id,
+            'article_uuid': self.report_id
+        }
+        return info
+
+    def __repr__(self):
+        return '<Good %r>' % self.id

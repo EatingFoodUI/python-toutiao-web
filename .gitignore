@@ -122,8 +122,8 @@ show_weather.py
 /migrations/
 /app/config.py
 api.md
-/app/template/article_pit/
-/app/template/comment_pit/
-/app/template/user_pit/
-/app/template/weiarticle_pit/
+/app/templates/article_pit/
+/app/templates/comment_pit/
+/app/templates/user_pit/
+/app/templates/weiarticle_pit/
 
