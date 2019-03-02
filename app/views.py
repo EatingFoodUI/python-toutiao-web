@@ -3,6 +3,7 @@ from .models import Wei_pit, Pit, Attention, ColleArticle
 from .models import Comment, Wei_article, Article, User
 from .models import Good, User_pit, Report_AR, Report_USER
 from flask import jsonify, request, current_app, session, make_response
+from flask import redirect, url_for
 import pdb
 from show_weather import get_weather, get_weather_page
 from flask_login import login_user, logout_user, login_required, current_user
@@ -75,19 +76,26 @@ def return_type():
 
 
 # 返回天气信息
-@app.route('/getWeather', methods=['GET', 'POST'])
+@app.route('/getWeather', methods=['POST'])
 def return_weather():
     city = request.json['city']
+    if city == "":
+        city = "重庆"
     page = get_weather_page(city)
     weather = get_weather(page)
     return weather
 
 
 # 用户登录
-@app.route('/userSignIn', methods=['GET', 'POST'])
+@app.route('/userSignIn', methods=['POST'])
 def SignIn():
+    if current_user.id is not None:
+        return redirect(url_for('homepage'))
     email = request.json['email']
     passwd = request.json['passwd']
+    if email == "" or passwd == "":
+        email = request.cookies.get('email')
+        passwd = request.cookies.get('passwd')
     # pdb.set_trace()
     the_user = User.query.filter(User.email == email).first()
     if the_user is None:
@@ -96,7 +104,12 @@ def SignIn():
         return jsonify({'static': '2'})
     if passwd == the_user.password:
         login_user(the_user, remember=True)
-        return jsonify(the_user.UserInfo())
+        resp = make_response(jsonify(the_user.UserInfo()))
+        outdate = datetime.datetime.today() + datetime.timedelta(days=30)
+        resp.set_cookie('email', email, expires=outdate)
+        resp.set_cookie('passwd', passwd, expires=outdate)
+        return resp
+        # return jsonify(the_user.UserInfo())
 
 
 # 用户登出
@@ -104,7 +117,7 @@ def SignIn():
 @login_required
 def LoginOut():
     id = request.args.get('id')
-    if id is None:
+    if id is None or id != current_user.id:
         return jsonify({'static': '0'})
     the_user = User.query.filter(User.id == id).first()
     if the_user is None:
@@ -129,7 +142,7 @@ def registered():
         return jsonify({"static": "2"})
     if passwd != repasswd or passwd == "" or repasswd == "":
         return jsonify({"static": "3"})
-    new_user = User(username=username, password=passwd, email=email)  
+    new_user = User(username=username, password=passwd, email=email)
     db.session.add(new_user)
     db.session.commit()
     session.pop('email', None)
@@ -139,7 +152,7 @@ def registered():
 
 # 向邮箱发送验证码
 @app.route('/ensureEmail', methods=['GET', 'POST'])
-def ensureEmail():    
+def ensureEmail():
     email = request.json['email']
     if User.query.filter(User.email == email).first() is not None or email == "":
         return jsonify({"static": "0"})
@@ -216,7 +229,7 @@ def notAttention():
     to_follow_userId = current_user.id
     # 是否关注了此用户
     has_follow_user = Attention.query.filter(
-        and_(Attention.user_id == to_follow_userId, Attention.attention_id 
+        and_(Attention.user_id == to_follow_userId, Attention.attention_id
              == id)).first()
     if has_follow_user is not None:
         db.session.delete(has_follow_user)
@@ -232,7 +245,7 @@ def notAttention():
 # 关注的用户列表
 @app.route('/getAttentions', methods=['GET', 'POST'])
 def getAttentions():
-    pdb.set_trace()
+    # pdb.set_trace()
     the_id = request.json['id']
     page = request.json['page']
     if page == "":
@@ -285,6 +298,7 @@ def getFans():
 @login_required
 def PublishArticle():
     # pdb.set_trace()
+    # 把uuid当成文章id
     uuid = request.json['uuid']
     content = request.json['content']
     user_id = request.json['id']
@@ -294,7 +308,7 @@ def PublishArticle():
     if the_user is None or content == "":
         return jsonify({"static": "0"})
     if uuid == "":
-        new_article = Article(uuid=article_id, title=title, content=content, 
+        new_article = Article(uuid=article_id, title=title, content=content,
                               author_id=user_id)
         db.session.add(new_article)
         db.session.commit()
@@ -345,7 +359,7 @@ def deleteComment():
     db.session.commit()
     # 它评论其他评论
     if comment.is_toPerson is not None:
-        one_comment = Comment.query.filter(Comment.uuid == 
+        one_comment = Comment.query.filter(Comment.uuid ==
                                            comment.is_toPerson).first()
         one_comment.reply_sum = one_comment.reply_sum-1
     # 评论它的评论
@@ -372,14 +386,16 @@ def PublicWei():
     if the_user is None or content == "":
         return jsonify({"static": "0"})
     if uuid == "":
-        new_article = Wei_article(uuid=article_id, content=content, 
+        new_article = Wei_article(uuid=article_id, content=content,
                                   author_id=user_id)
         db.session.add(new_article)
         db.session.commit()
         return jsonify({"static": "1"})
     else:
-        the_article = Wei_article.query.filter(Wei_article.uuid == 
+        the_article = Wei_article.query.filter(Wei_article.uuid ==
                                                uuid).first()
+        if the_article is None:
+            return jsonify({"static": "3"})
         the_article.content = content
         db.session.commit()
         return jsonify({"static": "2"})
@@ -407,7 +423,7 @@ def deleteWei():
     db.session.delete(the_wei)
     db.session.commit()
     return jsonify({"static": "3"})
-    
+
 
 # 收藏文章列表(未测试)
 @app.route('/likeAr_list', methods=['GET', 'POST'])
@@ -444,7 +460,8 @@ def relateAr():
         page = "1"
     if content == "":
         return jsonify({"static": "0"})
-    the_article = Article.query.filter(Article.title.like('%'+content+'%')).all()
+    the_article = Article.query.filter(
+        Article.title.like('%'+content+'%')).all()
     if the_article is None:
         return jsonify({"static": "1"})
     l0 = list()
@@ -484,8 +501,32 @@ def relateUser():
 
 
 # 首页文章(机器学习)
+@app.route('/homepage', methods=['GET', 'POST'])
+def homepage():
+    return 'haha'
 
-# 热闻(机器学习)
+# 热闻
+@app.route('/hot_news', methods=['GET', 'POST'])
+def hot_news():
+    page = request.json['page']
+    if page == "":
+        page = 1
+    otherArticles = Article.query.order_by(Article.read_sum.desc()).paginate(
+        page=int(page), per_page=20, error_out=False)
+    # pdb.set_trace()
+    if otherArticles is None:
+        return jsonify({"static": "0"})
+    l0 = list()
+    # 每页返回20
+    for i in range(0, 20):
+        try:
+            article = otherArticles.items[i]
+            the_json = article.Info()
+            l0.append(the_json)
+        except IndexError:
+            print('')
+    return jsonify({'data': l0})
+
 
 # 推荐文章(机器学习)
 
@@ -496,7 +537,8 @@ def OtherArticle():
     page = request.json['page']
     if page == "":
         page = 1
-    otherArticles = Article.query.order_by(Article.updateTime.desc()).paginate(page=int(page), per_page=20, error_out=False)
+    otherArticles = Article.query.order_by(Article.updateTime.desc()).paginate(
+        page=int(page), per_page=20, error_out=False)
     # pdb.set_trace()
     if otherArticles is None:
         return jsonify({"static": "0"})
@@ -540,10 +582,10 @@ def DeleteCollectArticles():
         return jsonify({"static": "0"})
     if id != str(current_user.id):
         return jsonify({"static": "1"})
-    the_collect = ColleArticle.query.filter(and_(ColleArticle.article_uuid 
-                                                 == uuid, ColleArticle.user_id 
+    the_collect = ColleArticle.query.filter(and_(ColleArticle.article_uuid
+                                                 == uuid, ColleArticle.user_id
                                                  == id)).first()
-    if the_collect is None:        
+    if the_collect is None:
         return jsonify({"static": "2"})
     db.session.delete(the_collect)
     db.session.commit()
@@ -573,11 +615,11 @@ def get_comment():
         return jsonify({"static": "0"})
     if Article.query.filter(Article.uuid == uuid).first() is None:
         return jsonify({"static": "1"})
-    comment_list = Comment.query.filter(and_(Comment.article_uuid == uuid, 
-                                        Comment.is_toPerson == "")).order_by(
-                                        Comment.CommentTime.desc()).paginate(
-                                        page=int(page), per_page=20, 
-                                        error_out=False).items    
+    comment_list = Comment.query.filter(and_(Comment.article_uuid == uuid,
+                                             Comment.is_toPerson == "")).order_by(
+        Comment.CommentTime.desc()).paginate(
+        page=int(page), per_page=20,
+        error_out=False).items
     l0 = list()
     # 每页返回20
     for i in range(0, 20):
@@ -604,14 +646,14 @@ def public_comment():
         return jsonify({"static": "1"})
     if Article.query.filter(Article.uuid == uuid).first() is None:
         return jsonify({"static": "2"})
-    if is_toPerson != "" and Comment.query.filter(Comment.cid == 
+    if is_toPerson != "" and Comment.query.filter(Comment.cid ==
                                                   is_toPerson).first() is None:
         return jsonify({"static": "3"})
     if content == "":
         return jsonify({"static": "4"})
     cid = shortuuid.uuid(pad_length=20)
-    comment = Comment(cid=cid, article_uuid=uuid, user_id=current_user.id, 
-                      comment=content, is_toPerson=is_toPerson, 
+    comment = Comment(cid=cid, article_uuid=uuid, user_id=current_user.id,
+                      comment=content, is_toPerson=is_toPerson,
                       CommentTime=datetime.date.today())
     db.session.add(comment)
     db.session.commit()
@@ -630,14 +672,14 @@ def show_reply():
     cid = request.json['cid']
     if article_id == "" or cid == "":
         return jsonify({"static": "0"})
-    if Comment.query.filter(and_(Comment.cid == cid, 
-                            Comment.article_uuid == 
-                            article_id)).first() is None:
+    if Comment.query.filter(and_(Comment.cid == cid,
+                                 Comment.article_uuid ==
+                                 article_id)).first() is None:
         return jsonify({"static": "1"})
     # 回复排序
-    the_comment_list = Comment.query.filter(Comment.is_toPerson == 
+    the_comment_list = Comment.query.filter(Comment.is_toPerson ==
                                             cid).order_by(
-                                            Comment.CommentTime.desc()).all()
+        Comment.CommentTime.desc()).all()
     l0 = list()
     # 每页返回20
     for i in range(0, len(the_comment_list)):
@@ -661,7 +703,7 @@ def give_good():
         return jsonify({"static": "0"})
     if Comment.query.filter(Comment.cid == comment_id).first() is None or Good.query.filter(and_(Good.user_id == int(user_id), Good.comment_cid == comment_id)).first() is not None:
         return jsonify({"static": "1"})
-    the_good = Good(user_id=user_id, comment_cid=comment_id, 
+    the_good = Good(user_id=user_id, comment_cid=comment_id,
                     article_uuid=article_uuid)
     db.session.add(the_good)
     the_comment = Comment.query.filter(Comment.cid == comment_id).first()
@@ -680,8 +722,8 @@ def delete_good():
         return jsonify({"static": "0"})
     if Comment.query.filter(Comment.cid == comment_id).first() is None or Good.query.filter(and_(Good.user_id == int(user_id), Good.comment_cid == comment_id)).first() is None:
         return jsonify({"static": "1"})
-    the_good = Good.query.filter(and_(Good.user_id == user_id, 
-                                 Good.comment_cid == comment_id)).first()
+    the_good = Good.query.filter(and_(Good.user_id == user_id,
+                                      Good.comment_cid == comment_id)).first()
     db.session.delete(the_good)
     db.session.commit()
     the_comment = Comment.query.filter(Comment.cid == comment_id).first()
@@ -700,8 +742,8 @@ def is_alreadyGood():
         return jsonify({"static": "0"})
     if Article.query.filter(Article.uuid == article_uuid).first() is None:
         return jsonify({"static": "1"})
-    where_good = Good.query.filter(and_(Good.article_uuid == article_uuid, 
-                                   Good.user_id == user_id)).all()
+    where_good = Good.query.filter(and_(Good.article_uuid == article_uuid,
+                                        Good.user_id == user_id)).all()
     # pdb.set_trace()
     if where_good is None:
         return jsonify({"static": "2"})
@@ -732,8 +774,8 @@ def essayPhoto(pitFrom):
     if uuid == "":
         return jsonify({"static": "2"})
     filename = str(shortuuid.uuid(pad_length=20)) + pitName
-    
-    UPLOAD_FOLDER = os.path.join('/home/liyongli/下载/今日头条/app/templates/', 
+
+    UPLOAD_FOLDER = os.path.join('/home/liyongli/下载/今日头条/app/templates/',
                                  '%s/%s' % (pitFrom, pitName))
     file_path = UPLOAD_FOLDER+filename
 
@@ -748,11 +790,11 @@ def essayPhoto(pitFrom):
     if pitFrom == "user_pit":
         the_pit = User_pit(pit_name=filename, user_id=uuid, pit_uri=file_path)
     if pitFrom == "weiarticle_pit":
-        the_pit = Wei_pit(pit_name=filename, article_uuid=uuid, 
+        the_pit = Wei_pit(pit_name=filename, article_uuid=uuid,
                           pit_uri=file_path)
     db.session.add(the_pit)
     db.session.commit()
-       
+
     return jsonify({'static': "5", 'src': file_path, 'filename': filename})
 
 
@@ -785,7 +827,7 @@ def Photo():
             l0.append(the_json)
         except IndexError:
             print('')
-    return jsonify({'data': l0})  
+    return jsonify({'data': l0})
 
 
 # 获取图片
@@ -819,7 +861,7 @@ def report_article():
         return jsonify({"static": "1"})
     if Article.query.filter(Article.uuid == article_uuid).first() is None:
         return jsonify({"static": "2"})
-    the_report = Report_AR(user_id=user_id, article_uuid=article_uuid, 
+    the_report = Report_AR(user_id=user_id, article_uuid=article_uuid,
                            reason_id=reason_id)
     db.session.add(the_report)
     db.session.commit()
@@ -839,8 +881,17 @@ def report_user():
         return jsonify({"static": "1"})
     if User.query.filter(User.id == report_id).first() is None:
         return jsonify({"static": "2"})
-    the_report = Report_USER(user_id=user_id, report_id=report_id, 
+    the_report = Report_USER(user_id=user_id, report_id=report_id,
                              reason_id=reason_id)
     db.session.add(the_report)
     db.session.commit()
     return jsonify({"static": "3"})
+
+
+# 给所有文章添加uuid
+def uuid_get():
+    ar = Article.query.all()
+    for i in range(0, len(ar)):
+        i1 = str(i)
+        ar[i].uuid = i1
+        db.session.commit()

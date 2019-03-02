@@ -53,6 +53,9 @@ class Article(db.Model):
     read_sum = db.Column(db.Integer, default=0)
     comment = db.Column(db.Integer, default=0)
     updateTime = db.Column(db.Date, default=datetime.date.today())
+    # 首页图片地址
+    pic = db.Column(db.String(100))
+    author = db.Column(db.String(100))
 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     User = db.relationship('User', backref=db.backref('Article'))
@@ -67,7 +70,9 @@ class Article(db.Model):
             'read_sum': self.read_sum,
             'comment': self.comment,
             'updateTime': self.updateTime,
-            'author_id': self.author_id
+            'author_id': self.author_id,
+            'pic': self.pic,
+            'author': self.author
         }
         return info
 
@@ -107,7 +112,7 @@ class Wei_article(db.Model):
 
     def __repr__(self):
         return '<Wei_article %r>' % self.title
-    
+  
 
 # 评论
 class Comment(db.Model):

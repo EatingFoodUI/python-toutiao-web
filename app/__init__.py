@@ -10,6 +10,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 # 发送邮件
 from flask_mail import Mail
+from flask_cors import *
 
 app = Flask(__name__)
 app.secret_key = "jinritoutiao"
@@ -33,5 +34,8 @@ manager = Manager(app)
 
 # 邮件实例
 mail = Mail(app)
+
+# 跨域
+CORS(app, supports_credentials=True)
 
 from . import views
