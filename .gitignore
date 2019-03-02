@@ -121,7 +121,6 @@ get_weather_id.py
 show_weather.py
 /migrations/
 /app/config.py
-api.md
 /app/templates/article_pit/
 /app/templates/comment_pit/
 /app/templates/user_pit/
