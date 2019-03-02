@@ -116,13 +116,11 @@ dmypy.json
 .pyre/
 
 # myadd
-weather_id.txt
-get_weather_id.py
-show_weather.py
 /migrations/
 /app/config.py
 /app/templates/article_pit/
 /app/templates/comment_pit/
 /app/templates/user_pit/
 /app/templates/weiarticle_pit/
+config.py
 
